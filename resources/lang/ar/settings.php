@@ -1,0 +1,8 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'save' => 'حفظ التغييرات',
+    'saved' => 'تم الحفظ',
+];

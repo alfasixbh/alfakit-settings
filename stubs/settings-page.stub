@@ -1,0 +1,26 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+{{ imports }}
+use AlfaSix\Alfakit\Schemas\Schema;
+use AlfaSix\AlfakitSettings\Pages\SettingsPage;
+use {{ settingsClass }};
+
+class {{ class }} extends SettingsPage
+{
+    protected static string $settings = {{ settingsBaseClass }}::class;
+
+    protected static ?string $navigationIcon = 'settings';
+
+    protected static ?string $title = '{{ title }}';
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema->components([
+{{ fields }}
+        ]);
+    }
+}

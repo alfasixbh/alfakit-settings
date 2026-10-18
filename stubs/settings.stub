@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Spatie\LaravelSettings\Settings;
+
+class {{ class }} extends Settings
+{
+    // Add a typed public property per setting (`public string $site_name;`) and a settings
+    // migration for its default value: php artisan make:settings-migration Create{{ class }}
+
+    public static function group(): string
+    {
+        return '{{ group }}';
+    }
+}
