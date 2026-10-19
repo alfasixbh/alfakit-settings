@@ -52,12 +52,16 @@ class MakeSettingsPageCommand extends Command
         $suffix = $this->panelNamespaceSuffix();
         $namespace = $this->generationNamespace().$suffix.'\\Pages';
 
+        // A page named like its settings class (`GeneralSettings`) imports it under an alias,
+        // or the import would clash with the page class ("Cannot redeclare class").
+        $settingsAlias = $settingsBaseClass === $name ? "{$settingsBaseClass}Class" : $settingsBaseClass;
+
         $this->writeStub($files, 'settings-page', $this->generationPath().str_replace('\\', '/', $suffix)."/Pages/{$name}.php", [
             'namespace' => $namespace,
             'class' => $name,
             'title' => Str::headline(Str::replaceStart('Manage', '', $name)),
-            'settingsClass' => $settingsClass,
-            'settingsBaseClass' => $settingsBaseClass,
+            'settingsClass' => $settingsAlias === $settingsBaseClass ? $settingsClass : "{$settingsClass} as {$settingsAlias}",
+            'settingsBaseClass' => $settingsAlias,
             'imports' => implode("\n", array_map(static fn (string $class): string => "use {$class};", $imports)),
             'fields' => $fields,
         ], $force);
@@ -166,16 +170,37 @@ class MakeSettingsPageCommand extends Command
     }
 
     /**
-     * `\Admin` when the app has several panels (like the other generators).
+     * The panel's namespace segment, like the core generators: taken from where the panel
+     * discovers its resources (`''` for `App\\Alfakit\\Resources`, `'\\Shop'` for
+     * `App\\Alfakit\\Shop\\Resources`), so adding a panel never moves an existing panel's
+     * pages; a panel that doesn't discover resources gets its own segment when the app
+     * has another panel.
      */
     protected function panelNamespaceSuffix(): string
     {
         $panelId = $this->option('panel') ?? alfakit()->getDefaultPanel()?->getId();
 
-        if (! is_string($panelId) || count(alfakit()->getPanels()) <= 1) {
+        if (! is_string($panelId)) {
             return '';
         }
 
-        return '\\'.Str::studly($panelId);
+        $base = $this->generationNamespace();
+        $panels = alfakit()->getPanels();
+
+        foreach (($panels[$panelId] ?? null)?->getResourceDiscovery() ?? [] as $discovery) {
+            $namespace = trim($discovery['namespace'], '\\');
+
+            if ($namespace === $base.'\\Resources') {
+                return '';
+            }
+
+            if (str_starts_with($namespace, $base.'\\') && str_ends_with($namespace, '\\Resources')) {
+                return '\\'.Str::beforeLast(Str::after($namespace, $base.'\\'), '\\Resources');
+            }
+        }
+
+        $others = array_filter(array_keys($panels), static fn (int|string $id): bool => (string) $id !== $panelId);
+
+        return $others === [] ? '' : '\\'.Str::studly($panelId);
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use AlfaSix\Alfakit\Notifications\Notification;
+use AlfaSix\Alfakit\Panel;
 use AlfaSix\AlfakitSettings\SettingsPlugin;
 use AlfaSix\AlfakitSettings\Tests\Fixtures\GeneralSettings;
 use AlfaSix\AlfakitSettings\Tests\Fixtures\ManageGeneral;
@@ -115,6 +116,35 @@ it('generates a settings page with a field per setting', function (): void {
             ->toContain("TextInput::make('per_page')->integer()->required(),")
             ->toContain("TextInput::make('api_secret'),")
             ->toContain('use AlfaSix\Alfakit\Forms\Components\Toggle;');
+    } finally {
+        $files->deleteDirectory($directory);
+    }
+});
+
+it('puts the page next to the panel\'s own pages when the app has several panels', function (): void {
+    $files = new Filesystem;
+    $directory = storage_path('framework/alfakit-settings-generator');
+    config(['alfakit.file_generation.path' => $directory, 'alfakit.file_generation.namespace' => 'App\\Alfakit']);
+
+    // The app's first panel discovers `App\Alfakit\Resources`: its pages have no panel segment.
+    alfakit()->registerPanel(Panel::make('main')->path('main')->discoverResources(in: $directory.'/Resources', for: 'App\\Alfakit\\Resources'));
+
+    try {
+        stTest()->artisan('make:alfakit-settings-page', ['name' => 'ManageGeneral', 'settings' => GeneralSettings::class, '--panel' => 'main'])
+            ->assertSuccessful();
+
+        expect($files->get("{$directory}/Pages/ManageGeneral.php"))->toContain('namespace App\Alfakit\Pages;');
+
+        // A page named like its settings class imports the class under an alias.
+        stTest()->artisan('make:alfakit-settings-page', ['name' => 'GeneralSettings', 'settings' => GeneralSettings::class, '--panel' => 'main'])
+            ->assertSuccessful();
+
+        $code = $files->get("{$directory}/Pages/GeneralSettings.php");
+
+        expect($code)
+            ->toContain('use AlfaSix\AlfakitSettings\Tests\Fixtures\GeneralSettings as GeneralSettingsClass;')
+            ->toContain('protected static string $settings = GeneralSettingsClass::class;')
+            ->and(fn () => token_get_all($code, TOKEN_PARSE))->not->toThrow(ParseError::class);
     } finally {
         $files->deleteDirectory($directory);
     }
